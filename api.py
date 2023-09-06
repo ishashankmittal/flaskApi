@@ -33,15 +33,21 @@ def classify_image(image_data):
         # Post-process the results
         confidence_scores = output[0]
 
-        # Create a dictionary of class names and their corresponding confidence scores
+        # Calculate the total confidence score for normalization
+        total_confidence = np.sum(confidence_scores)
+
+        # Create a dictionary of class names and their corresponding confidence percentages
         results = {}
         for class_index, confidence in enumerate(confidence_scores):
             class_name = labels[class_index]
-            results[class_name] = float(confidence)
+            confidence_percentage = (confidence / total_confidence) * 100.0
+            confidence_percentage = round(confidence_percentage, 3)  # Round to two decimal places
+            results[class_name] = confidence_percentage
 
         return results
     except Exception as e:
         raise Exception(str(e))
+
 
 @app.route('/classify', methods=['POST'])
 def classify():
