@@ -15,39 +15,25 @@ with open(labels_path, 'r') as file:
     labels = [line.strip() for line in file.readlines()]
 
 def classify_image(image_data):
-    try:
-        # Preprocess the image (you may need to adjust this based on your model requirements)
-        input_details = interpreter.get_input_details()
-        input_shape = input_details[0]['shape']
-        image = tf.image.decode_image(image_data)
-        image = tf.image.resize(image, (input_shape[1], input_shape[2]))
-        image = np.expand_dims(image, axis=0)
-        image = image / 255.0  # Normalize the image
+    # Preprocess the image (you may need to adjust this based on your model requirements)
+    input_details = interpreter.get_input_details()
+    input_shape = input_details[0]['shape']
+    image = tf.image.decode_image(image_data)
+    image = tf.image.resize(image, (input_shape[1], input_shape[2]))
+    image = np.expand_dims(image, axis=0)
+    image = image / 255.0  # Normalize the image
 
-        # Perform inference
-        interpreter.set_tensor(input_details[0]['index'], image)
-        interpreter.invoke()
-        output_details = interpreter.get_output_details()
-        output = interpreter.get_tensor(output_details[0]['index'])
+    # Perform inference
+    interpreter.set_tensor(input_details[0]['index'], image)
+    interpreter.invoke()
+    output_details = interpreter.get_output_details()
+    output = interpreter.get_tensor(output_details[0]['index'])
 
-        # Post-process the results
-        confidence_scores = output[0]
+    # Post-process the results
+    class_index = np.argmax(output)
+    confidence = output[0][class_index]
 
-        # Calculate the total confidence score for normalization
-        total_confidence = np.sum(confidence_scores)
-
-        # Create a dictionary of class names and their corresponding confidence percentages
-        results = {}
-        for class_index, confidence in enumerate(confidence_scores):
-            class_name = labels[class_index]
-            confidence_percentage = (confidence / total_confidence) * 100.0
-            confidence_percentage = round(confidence_percentage, 3)  # Round to two decimal places
-            results[class_name] = confidence_percentage
-
-        return results
-    except Exception as e:
-        raise Exception(str(e))
-
+    return labels[class_index], confidence
 
 @app.route('/classify', methods=['POST'])
 def classify():
@@ -56,10 +42,11 @@ def classify():
             return jsonify({'error': 'No image provided'}), 400
 
         image = request.files['image'].read()
-        results = classify_image(image)
-        return jsonify(results), 200
+        class_name, confidence = classify_image(image)
+        confidence_percentage = round(float(confidence) * 100, 3)  # Convert to percentage and round
+        return jsonify({'class_name': class_name, 'confidence': confidence_percentage}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
+    app.run(debug=False,host='0.0.0.0',port=8000)
